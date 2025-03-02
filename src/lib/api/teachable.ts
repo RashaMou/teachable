@@ -39,7 +39,7 @@ async function _getEnrollments(courseId: number) {
 }
 
 async function _getEnrollmentData(
-  courseId: number
+  courseId: string
 ): Promise<{ totalEnrollments: number; currentMonthEnrollments: number }> {
   const enrollments = await fetchFromTeachable(
     `/courses/${courseId}/enrollments`
@@ -62,7 +62,7 @@ async function _getEnrollmentData(
   return { totalEnrollments, currentMonthEnrollments: currentMonthCount };
 }
 
-export async function getFullCoursesData(): Promise<Course[]> {
+async function _getFullCoursesData(): Promise<Course[]> {
   const courses = await fetchFromTeachable("/courses");
   const activeCourses = courses.courses.filter(
     (course: Course) => course.is_published
@@ -96,7 +96,7 @@ export async function getStudentsByCourse(
   );
 
   const students = await Promise.all(
-    userIds.map(async (userId) => {
+    userIds.map(async (userId: number) => {
       const user = await _getUserById(userId);
       const courseInfo = user.courses.find(
         (course) => course.course_id === courseId
@@ -114,4 +114,23 @@ export async function getStudentsByCourse(
   );
 
   return students;
+}
+
+export async function getCoursesWithStudents(): Promise<Course[]> {
+  // Get courses with enrollment data
+  const coursesWithEnrollments = await _getFullCoursesData();
+
+  // For each course, fetch and add its students
+  const coursesWithStudents = await Promise.all(
+    coursesWithEnrollments.map(async (course) => {
+      const students = await getStudentsByCourse(parseInt(course.id));
+
+      return {
+        ...course,
+        students: students,
+      };
+    })
+  );
+
+  return coursesWithStudents;
 }

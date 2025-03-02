@@ -6,6 +6,7 @@ export interface Course {
   totalEnrollments: number;
   newEnrollmentsThisMonth: number;
   is_published?: boolean;
+  students: Student[];
 }
 
 export interface Student {
