@@ -3,7 +3,7 @@ import ErrorBoundary from "./error";
 
 export default async function Home() {
   const coursesResponse = await fetch("http://localhost:3000/api/courses", {
-    next: { revalidate: 3600 }, // Cache for 1 hour
+    next: { revalidate: 300 }, // Cache for 5 minutes
   });
 
   const data = await coursesResponse.json();

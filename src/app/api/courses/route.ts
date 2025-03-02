@@ -9,7 +9,7 @@ export async function GET() {
       { courses },
       {
         headers: {
-          "Cache-Control": "max-age=3600, s-maxage=3600",
+          "Cache-Control": "max-age=300, s-maxage=300",
         },
       }
     );
