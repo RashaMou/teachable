@@ -14,27 +14,13 @@ const Dashboard: React.FC<DashboardProps> = ({ courses }) => {
     courses.length > 0 ? courses[0].id : ""
   );
 
-  const [students, setStudents] = useState([]);
-  const [isLoadingStudents, setIsLoadingStudents] = useState(false);
-
   const selectedCourse =
     courses.find((course) => course.id === selectedCourseId) || courses[0];
 
   useEffect(() => {
-    if (selectedCourseId) {
-      setIsLoadingStudents(true);
-      fetch(`/api/courses/${selectedCourseId}/students`)
-        .then((res) => res.json())
-        .then((data) => {
-          setStudents(data);
-          setIsLoadingStudents(false);
-        })
-        .catch((error) => {
-          console.error(`Error fetching students: ${error}`);
-          setIsLoadingStudents(false);
-        });
-    }
-  }, [selectedCourseId]);
+    console.log("Selected course:", selectedCourse);
+    console.log("Students:", selectedCourse?.students);
+  }, [selectedCourse]);
 
   return (
     <div className="flex h-screen bg-gray-100">
@@ -47,11 +33,8 @@ const Dashboard: React.FC<DashboardProps> = ({ courses }) => {
       <div className="flex-1 overflow-auto p-6">
         {selectedCourse && (
           <>
-            <CourseOverview course={selectedCourse} students={students} />
-            <StudentTable
-              students={students}
-              isLoadingStudents={isLoadingStudents}
-            />
+            <CourseOverview course={selectedCourse} />
+            <StudentTable students={selectedCourse.students || []} />
           </>
         )}
       </div>

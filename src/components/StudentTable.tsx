@@ -1,24 +1,21 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Student } from "../lib/types";
 
 interface StudentTableProps {
   students: Student[];
-  isLoadingStudents: boolean;
 }
 
-const StudentTable: React.FC<StudentTableProps> = ({
-  students,
-  isLoadingStudents,
-}) => {
+const StudentTable: React.FC<StudentTableProps> = ({ students }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState<keyof Student>("name");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
-  const filteredStudents = students.filter(
-    (student) =>
-      student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredStudents =
+    students?.filter(
+      (student) =>
+        student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        student.email.toLowerCase().includes(searchTerm.toLowerCase())
+    ) || [];
 
   const sortedStudents = [...filteredStudents].sort((a, b) => {
     const aValue = a[sortField];
