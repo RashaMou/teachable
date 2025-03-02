@@ -5,7 +5,14 @@ export async function GET() {
   try {
     const courses = await getCoursesWithStudents();
 
-    return NextResponse.json({ courses });
+    return NextResponse.json(
+      { courses },
+      {
+        headers: {
+          "Cache-Control": "max-age=3600, s-maxage=3600",
+        },
+      }
+    );
   } catch (error) {
     return NextResponse.json(
       { error: `Failed to fetch courses: ${error}` },
