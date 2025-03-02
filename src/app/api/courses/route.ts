@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { getCoursesWithStudents } from "@/lib/api/teachable";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const courses = await getCoursesWithStudents();
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get("page") || "1");
+    const perPage = parseInt(searchParams.get("perPage") || "20");
+
+    const courses = await getCoursesWithStudents(page, perPage);
 
     return NextResponse.json(
       { courses },

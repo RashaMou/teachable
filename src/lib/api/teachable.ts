@@ -2,9 +2,19 @@ const apiKey = process.env.TEACHABLE_API_KEY;
 const baseUrl = process.env.TEACHABLE_API_URL;
 import { Course, Student } from "../types";
 
-async function fetchFromTeachable(endpoint: string) {
+async function fetchFromTeachable(
+  endpoint: string,
+  page?: number = 1,
+  perPage?: number = 20
+) {
   try {
-    const response = await fetch(`${baseUrl}${endpoint}`, {
+    let url = `${baseUrl}${endpoint}`;
+
+    if (page && perPage) {
+      url += `?page=${page}&per=${perPage}`;
+    }
+
+    const response = await fetch(url, {
       headers: {
         accept: "application/json",
         apiKey: `${apiKey}`,
@@ -22,28 +32,26 @@ async function fetchFromTeachable(endpoint: string) {
   }
 }
 
-async function _getUsers() {
-  return fetchFromTeachable("/users");
-}
-
 async function _getUserById(userId: number) {
   return fetchFromTeachable(`/users/${userId}`);
 }
 
-export async function _getCourses() {
-  return fetchFromTeachable("/courses");
+export async function _getCourses(page: number = 1, perPage: number = 20) {
+  return fetchFromTeachable("/courses", page, perPage);
 }
 
-async function _getEnrollments(courseId: number) {
-  return fetchFromTeachable(`/courses/${courseId}/enrollments`);
+async function _getEnrollments(
+  courseId: number,
+  page: number = 1,
+  perPage: number = 20
+) {
+  return fetchFromTeachable(`/courses/${courseId}/enrollments`, page, perPage);
 }
 
 async function _getEnrollmentData(
-  courseId: string
+  courseId: number
 ): Promise<{ totalEnrollments: number; currentMonthEnrollments: number }> {
-  const enrollments = await fetchFromTeachable(
-    `/courses/${courseId}/enrollments`
-  );
+  const enrollments = await _getEnrollments(courseId);
   const totalEnrollments = enrollments.meta.total;
 
   const now = new Date();
@@ -62,16 +70,20 @@ async function _getEnrollmentData(
   return { totalEnrollments, currentMonthEnrollments: currentMonthCount };
 }
 
-async function _getFullCoursesData(): Promise<Course[]> {
-  const courses = await fetchFromTeachable("/courses");
-  const activeCourses = courses.courses.filter(
+async function _getFullCoursesData(
+  page: number = 1,
+  perPage: number = 20
+): Promise<Course[]> {
+  // does not have meta
+  const coursesData = await _getCourses(page, perPage);
+  const activeCourses = coursesData.courses.filter(
     (course: Course) => course.is_published
   );
 
   const coursesWithEnrollments = await Promise.all(
     activeCourses.map(async (course: Course) => {
       const { totalEnrollments, currentMonthEnrollments } =
-        await _getEnrollmentData(course.id);
+        await _getEnrollmentData(Number(course.id));
 
       return {
         id: String(course.id),
@@ -88,10 +100,18 @@ async function _getFullCoursesData(): Promise<Course[]> {
 }
 
 export async function getStudentsByCourse(
-  courseId: number
-): Promise<Student[]> {
-  const enrollments = await _getEnrollments(courseId);
-  const userIds = enrollments.enrollments.map(
+  courseId: number,
+  page: number = 1,
+  perPage: number = 20
+): Promise<{ students: Student[]; meta: any }> {
+  const enrollmentsData = await _getEnrollments(
+    Number(courseId),
+    page,
+    perPage
+  );
+  const meta = enrollmentsData.meta;
+
+  const userIds = enrollmentsData.enrollments.map(
     (enrollment) => enrollment.user_id
   );
 
@@ -113,17 +133,25 @@ export async function getStudentsByCourse(
     })
   );
 
-  return students;
+  return { students, meta };
 }
 
-export async function getCoursesWithStudents(): Promise<Course[]> {
-  // Get courses with enrollment data
-  const coursesWithEnrollments = await _getFullCoursesData();
+export async function getCoursesWithStudents(
+  page: number = 1,
+  perPage: number = 20
+): Promise<{ course: Course[]; meta: any }> {
+  const coursesData = await _getFullCoursesData(page, perPage);
+  const courses = coursesData.courses;
+  const meta = coursesData.meta;
 
   // For each course, fetch and add its students
   const coursesWithStudents = await Promise.all(
-    coursesWithEnrollments.map(async (course) => {
-      const students = await getStudentsByCourse(parseInt(course.id));
+    courses.map(async (course: Course) => {
+      const students = await getStudentsByCourse(
+        parseInt(course.id),
+        1,
+        perPage
+      );
 
       return {
         ...course,
@@ -132,5 +160,5 @@ export async function getCoursesWithStudents(): Promise<Course[]> {
     })
   );
 
-  return coursesWithStudents;
+  return { courses: coursesWithStudents, meta };
 }
