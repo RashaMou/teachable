@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCoursesWithStudents } from "@/lib/api/teachable";
+import { getAllCoursesWithInitialStudents } from "@/lib/api/teachableService";
 
 export async function GET(request: Request) {
   try {
@@ -7,7 +7,7 @@ export async function GET(request: Request) {
     const page = parseInt(searchParams.get("page") || "1");
     const perPage = parseInt(searchParams.get("perPage") || "20");
 
-    const courses = await getCoursesWithStudents(page, perPage);
+    const courses = await getAllCoursesWithInitialStudents();
 
     return NextResponse.json(
       { courses },
