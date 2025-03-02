@@ -4,7 +4,6 @@ import { getCoursesWithStudents } from "@/lib/api/teachable";
 export async function GET() {
   try {
     const courses = await getCoursesWithStudents();
-    console.log(courses);
 
     return NextResponse.json({ courses });
   } catch (error) {

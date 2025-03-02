@@ -17,11 +17,6 @@ const Dashboard: React.FC<DashboardProps> = ({ courses }) => {
   const selectedCourse =
     courses.find((course) => course.id === selectedCourseId) || courses[0];
 
-  useEffect(() => {
-    console.log("Selected course:", selectedCourse);
-    console.log("Students:", selectedCourse?.students);
-  }, [selectedCourse]);
-
   return (
     <div className="flex h-screen bg-gray-100">
       <Sidebar
