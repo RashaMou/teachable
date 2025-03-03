@@ -100,23 +100,9 @@ const StudentTable: React.FC<StudentTableProps> = ({ students }) => {
               </th>
               <th
                 scope="col"
-                className="cursor-pointer px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase"
-                onClick={() => handleSort("isActive")}
-              >
-                <div className="flex items-center">
-                  Status
-                  {sortField === "isActive" && (
-                    <span className="ml-1">
-                      {sortDirection === "asc" ? "↑" : "↓"}
-                    </span>
-                  )}
-                </div>
-              </th>
-              <th
-                scope="col"
                 className="px-6 py-3 text-right text-xs font-medium tracking-wider text-gray-500 uppercase"
               >
-                Actions
+                Completed
               </th>
             </tr>
           </thead>
@@ -136,24 +122,8 @@ const StudentTable: React.FC<StudentTableProps> = ({ students }) => {
                     {new Date(student.enrolledAt).toLocaleDateString()}
                   </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span
-                    className={`inline-flex rounded-full px-2 text-xs leading-5 font-semibold ${
-                      student.isActive
-                        ? "bg-green-100 text-green-800"
-                        : "bg-gray-100 text-gray-800"
-                    }`}
-                  >
-                    {student.isActive}
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-right text-sm font-medium whitespace-nowrap">
-                  <button
-                    onClick={() => navigator.clipboard.writeText(student.email)}
-                    className="mr-3 text-blue-600 hover:text-blue-900"
-                  >
-                    Copy Email
-                  </button>
+                <td className="px-6 py-4 text-sm font-medium">
+                  <ProgressBar value={20} max={100} />
                 </td>
               </tr>
             ))}
