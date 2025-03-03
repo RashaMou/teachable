@@ -5,7 +5,6 @@ export interface Course {
   image_url: string;
   totalEnrollments: number;
   newEnrollmentsThisMonth: number;
-  is_published?: boolean;
   students: Student[];
 }
 
@@ -14,9 +13,7 @@ export interface Student {
   name: string;
   email: string;
   enrolledAt: string;
-  isActive: boolean;
   percentComplete: number;
-  role: string;
 }
 
 export interface Enrollment {

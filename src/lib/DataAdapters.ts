@@ -1,27 +1,73 @@
 import { TeachableClient } from "./api/client/teachableClient";
 import { Course, Enrollment, Student } from "./types";
 
+interface TeachableUserResponse {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  last_sign_in_ip: string | null;
+  courses: Array<{
+    course_id: number;
+    course_name: string;
+    enrolled_at: string;
+    is_active_enrollment: boolean;
+    completed_at: string | null;
+    percent_complete: number;
+  }>;
+}
+
 const client = TeachableClient.fromEnv();
+const userRequestCache = new Map<number, Promise<any>>();
+
+function getStudentsEnrolledInCourse(
+  users: TeachableUserResponse[],
+  courseId: number
+): TeachableUserResponse[] {
+  return users.filter((user) =>
+    user.courses.some((course) => course.course_id === courseId)
+  );
+}
 
 async function getEnrollmentData(
   courseId: number
 ): Promise<{ totalEnrollments: number; enrollmentsThisMonth: number }> {
-  const enrollments = await client.getAll<Enrollment>(
+  const enrollmentsResponse = await client.getPaginated<Enrollment>(
     `/courses/${courseId}/enrollments`,
-    "enrollments"
+    { page: 1, per_page: 20 }
   );
-  const totalEnrollments = enrollments.length;
 
-  const enrollmentsThisMonth = getEnrollmentsThisMonth(enrollments);
+  const totalEnrollments = enrollmentsResponse.meta.total;
+
+  const enrollments = enrollmentsResponse["enrollments"];
+  const studentUsers = await fetchStudentUsers(enrollments);
+  const courseStudents = getStudentsEnrolledInCourse(studentUsers, courseId);
+  const enrollmentsThisMonth = countEnrollmentsThisMonth(courseStudents);
 
   return { totalEnrollments, enrollmentsThisMonth };
 }
 
-function getEnrollmentsThisMonth(enrollments: Enrollment[]): number {
+async function fetchStudentUsers(
+  enrollments: Enrollment[]
+): Promise<TeachableUserResponse[]> {
+  const userIds = enrollments.map((enrollment) => enrollment.user_id);
+
+  const userPromises = userIds.map((userId) => {
+    if (!userRequestCache.has(userId)) {
+      userRequestCache.set(userId, client.getById<Student>(`/users`, userId));
+    }
+    return userRequestCache.get(userId)!;
+  });
+
+  const allUsers = await Promise.all(userPromises);
+  return allUsers.filter((user) => user.role === "student");
+}
+
+function countEnrollmentsThisMonth(students: TeachableUserResponse[]): number {
   const now = new Date();
 
-  const enrollmentsThisMonth = enrollments.filter((enrollment) => {
-    const enrollmentDate = new Date(enrollment.enrolled_at);
+  const enrollmentsThisMonth = students.filter((student) => {
+    const enrollmentDate = new Date(student.enrolled_at);
     return (
       enrollmentDate.getFullYear() === now.getUTCFullYear() &&
       enrollmentDate.getUTCMonth() === now.getUTCMonth()
@@ -32,16 +78,33 @@ function getEnrollmentsThisMonth(enrollments: Enrollment[]): number {
 }
 
 export async function transformCourseData(): Promise<Course[]> {
-  const allCourses = await client.getAll<Course>("/courses", "courses");
+  try {
+    const activeCourses = await client.getAll<Course>("/courses", "courses", {
+      is_published: "true",
+    });
 
-  const activeCourses = allCourses.filter((course) => course.is_published);
+    const courseDataPromises = activeCourses.map(async (course) => {
+      try {
+        const enrollmentData = await getEnrollmentData(course.id);
+        return { ...course, ...enrollmentData };
+      } catch (error) {
+        console.error(
+          `Error fetching enrollment data for course ${course.id}:`,
+          error
+        );
+        return {
+          ...course,
+          totalEnrollments: 0,
+          enrollmentsThisMonth: 0,
+        };
+      }
+    });
 
-  const courseDataPromises = activeCourses.map(async (course) => {
-    const enrollmentData = await getEnrollmentData(course.id);
-    return { ...course, ...enrollmentData };
-  });
-
-  return Promise.all(courseDataPromises);
+    return Promise.all(courseDataPromises);
+  } catch (error) {
+    console.error("Error fetching courses:", error);
+    throw error;
+  }
 }
 
 export async function transformStudentData(
@@ -55,18 +118,8 @@ export async function transformStudentData(
 
   const enrollments = enrollmentsResponse["enrollments"];
 
-  const userIds = enrollments.map(
-    (enrollment: Enrollment) => enrollment.user_id
-  );
-
-  const userPromises = userIds.map(async (userId: number) => {
-    const user = await client.getById<Student>(`/users`, userId);
-    return user;
-  });
-
-  const allUsers = await Promise.all(userPromises);
-
-  const studentUsers = allUsers.filter((user) => user.role === "student");
+  const studentUsers: TeachableUserResponse[] =
+    await fetchStudentUsers(enrollments);
 
   const students: Student[] = studentUsers.map((user) => {
     const courseInfo = user.courses.find(
@@ -78,9 +131,7 @@ export async function transformStudentData(
       name: user.name,
       email: user.email,
       enrolledAt: courseInfo?.enrolled_at ?? "",
-      isActive: courseInfo?.is_active_enrollment ?? false,
       percentComplete: courseInfo?.percent_complete ?? 0,
-      role: "student",
     };
   });
 
