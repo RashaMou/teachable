@@ -2,8 +2,8 @@ import { Course } from "../lib/types";
 
 interface SidebarProps {
   courses: Course[];
-  selectedCourseId: string;
-  onSelectCourse: (courseId: string) => void;
+  selectedCourseId: number;
+  onSelectCourse: (courseId: number) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -30,9 +30,6 @@ const Sidebar: React.FC<SidebarProps> = ({
             }`}
           >
             {course.name}
-            <span className="ml-2 rounded-full bg-gray-200 px-1.5 py-0.5 text-xs text-gray-600">
-              {course.totalEnrollments}
-            </span>
           </button>
         ))}
       </div>

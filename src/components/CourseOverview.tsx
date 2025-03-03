@@ -1,10 +1,14 @@
-import { Course, Student } from "../lib/types";
+import { Course } from "../lib/types";
 
 interface CourseOverviewProps {
   course: Course;
+  enrolledStudentCount: number;
 }
 
-const CourseOverview: React.FC<CourseOverviewProps> = ({ course }) => {
+const CourseOverview: React.FC<CourseOverviewProps> = ({
+  course,
+  enrolledStudentCount,
+}) => {
   return (
     <div className="mb-6 rounded-lg bg-white p-6 shadow">
       <div className="flex items-start justify-between">
@@ -12,23 +16,12 @@ const CourseOverview: React.FC<CourseOverviewProps> = ({ course }) => {
           <h1 className="text-2xl font-bold text-gray-900">{course.name}</h1>
           <p className="mt-1 text-gray-600">{course.heading}</p>
         </div>
-        <span className="rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-800">
-          {course.totalEnrollments} Students
-        </span>
       </div>
 
       <div className="mt-6 grid grid-cols-3 gap-4">
         <div className="rounded-md bg-gray-50 p-4">
-          <p className="text-sm text-gray-500">Active Students</p>
-          <p className="mt-1 text-xl font-semibold">
-            {(course.students?.filter((s) => s.isActive) || []).length}
-          </p>
-        </div>
-        <div className="rounded-md bg-gray-50 p-4">
-          <p className="text-sm text-gray-500">Inactive Students</p>
-          <p className="mt-1 text-xl font-semibold">
-            {(course.students?.filter((s) => !s.isActive) || []).length}
-          </p>
+          <p className="text-sm text-gray-500">Enrolled Students</p>
+          <p className="mt-1 text-xl font-semibold">{enrolledStudentCount}</p>
         </div>
         <div className="rounded-md bg-gray-50 p-4">
           <p className="text-sm text-gray-500">New This Month</p>

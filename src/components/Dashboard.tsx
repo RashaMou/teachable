@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import { useState } from "react";
 import Sidebar from "./Sidebar";
 import CourseOverview from "./CourseOverview";
 import StudentTable from "./StudentTable";
@@ -10,8 +10,12 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ courses }) => {
-  const [selectedCourseId, setSelectedCourseId] = useState<string>(
-    courses.length > 0 ? courses[0].id : ""
+  if (!courses || courses.length === 0) {
+    return <div className="flex-1 p-6 text-center">No courses found</div>;
+  }
+
+  const [selectedCourseId, setSelectedCourseId] = useState<number>(
+    courses[0].id
   );
 
   const selectedCourse =
@@ -28,8 +32,14 @@ const Dashboard: React.FC<DashboardProps> = ({ courses }) => {
       <div className="flex-1 overflow-auto p-6">
         {selectedCourse && (
           <>
-            <CourseOverview course={selectedCourse} />
-            <StudentTable students={selectedCourse.students || []} />
+            <CourseOverview
+              course={selectedCourse}
+              enrolledStudentCount={selectedCourse.totalEnrollments}
+            />
+            <StudentTable
+              students={selectedCourse.students || []}
+              courseId={selectedCourse.id}
+            />
           </>
         )}
       </div>

@@ -1,18 +1,58 @@
-import { useState } from "react";
+"use client";
+
+import { useState, useEffect } from "react";
 import { Student } from "../lib/types";
+import ProgressBar from "./ProgressBar";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 interface StudentTableProps {
   students: Student[];
+  courseId: number;
 }
 
-const StudentTable: React.FC<StudentTableProps> = ({ students }) => {
+const StudentTable: React.FC<StudentTableProps> = ({ students, courseId }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState<keyof Student>("name");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [page, setPage] = useState<number>(1);
+
+  const fetchStudents = async (
+    courseId: number,
+    page: number
+  ): Promise<Student[]> => {
+    const studentsData = await fetch(
+      `http://localhost:3000/api/courses/${courseId}/students?page=${page}`
+    );
+    const students = studentsData.json();
+    return students;
+  };
+
+  const {
+    isPending,
+    error,
+    data: currentPageStudents,
+  } = useQuery({
+    queryKey: ["students", courseId, page],
+    queryFn: () => fetchStudents(courseId, page),
+    initialData: students,
+  });
+
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    queryClient.prefetchQuery({
+      queryKey: ["students", courseId, page + 1],
+      queryFn: () => fetchStudents(courseId, page + 1),
+    });
+  }, [page, courseId, queryClient]);
+
+  if (isPending) return "Loading...";
+
+  if (error) return "An error has occurred: " + error.message;
 
   const filteredStudents =
-    students?.filter(
-      (student) =>
+    currentPageStudents?.filter(
+      (student: Student) =>
         student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         student.email.toLowerCase().includes(searchTerm.toLowerCase())
     ) || [];
@@ -139,10 +179,17 @@ const StudentTable: React.FC<StudentTableProps> = ({ students }) => {
 
       <div className="flex items-center justify-between border-t border-gray-200 bg-gray-50 px-4 py-3">
         <div className="flex flex-1 justify-between sm:hidden">
-          <button className="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+          <button
+            className="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1}
+          >
             Previous
           </button>
-          <button className="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+          <button
+            className="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            onClick={() => setPage((p) => p + 1)}
+          >
             Next
           </button>
         </div>
