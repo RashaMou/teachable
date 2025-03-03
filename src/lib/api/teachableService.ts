@@ -13,3 +13,12 @@ export async function getAllCoursesWithInitialStudents(): Promise<
 
   return Promise.all(coursesWithStudentsPromises);
 }
+
+export async function getPaginatedStudents(
+  courseId: number,
+  page: number
+): Promise<Student[]> {
+  const students = await transformStudentData(courseId, page);
+
+  return students;
+}

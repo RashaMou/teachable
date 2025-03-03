@@ -1,13 +1,18 @@
 import { NextResponse } from "next/server";
-import { getStudentsByCourse } from "@/lib/api/teachable";
+import { getPaginatedStudents } from "@/lib/api/teachableService";
 
 export async function GET(
   request: Request,
   { params }: { params: { courseId: string } }
 ) {
   try {
-    const courseId = parseInt(params.courseId);
-    const students = await getStudentsByCourse(courseId);
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get("page") || "1");
+
+    const { courseId } = await params;
+    const courseIdNum = parseInt(courseId);
+
+    const students = await getPaginatedStudents(courseIdNum, page);
     return NextResponse.json(students);
   } catch (error) {
     return NextResponse.json(
