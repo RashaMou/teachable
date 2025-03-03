@@ -18,6 +18,9 @@ interface TeachableUserResponse {
 }
 
 const client = TeachableClient.fromEnv();
+
+//TODO: implement simple size-limited cache. Add timestamp to cache and then
+//remove earliest entries when cache size === max cache size.
 const userRequestCache = new Map<number, Promise<any>>();
 
 function getStudentsEnrolledInCourse(
