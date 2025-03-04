@@ -1,24 +1,32 @@
-import { transformCourseData, transformStudentData } from "../DataAdapters";
-import { Student, Course } from "../types";
+import { fetchAndCacheStudents, transformCourseData } from "../DataAdapters";
+import { Course, Student } from "../types";
 
-export async function getAllCoursesWithInitialStudents(): Promise<
-  Array<Course & { students: Student[] }>
-> {
+export async function getAllCoursesWithStudents(): Promise<Course[]> {
+  const studentMap = await fetchAndCacheStudents();
   const courses = await transformCourseData();
 
-  const coursesWithStudentsPromises = courses.map(async (course) => {
-    const firstPageStudents = await transformStudentData(course.id);
-    return { ...course, students: firstPageStudents };
+  const enrichedCourses: Course[] = courses.map((course) => {
+    const students: Student[] = Object.entries(studentMap)
+      .map(([id, studentData]) => {
+        const enrollment = studentData.courses.find(
+          (c) => c.course_id === course.id
+        );
+        if (!enrollment) return null; // not enrolled in this course
+        return {
+          id: Number(id),
+          name: studentData.name,
+          email: studentData.email,
+          enrolledAt: enrollment.enrolled_at,
+          percentComplete: enrollment.percent_complete,
+        };
+      })
+      .filter((student): student is Student => student !== null); // filter out non-enrolled
+
+    return {
+      ...course,
+      students,
+    };
   });
 
-  return Promise.all(coursesWithStudentsPromises);
-}
-
-export async function getPaginatedStudents(
-  courseId: number,
-  page: number
-): Promise<Student[]> {
-  const students = await transformStudentData(courseId, page);
-
-  return students;
+  return enrichedCourses;
 }

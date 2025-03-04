@@ -1,13 +1,15 @@
+import { Student } from "@/lib/types";
+
 interface PaginatedParams {
   page?: number;
   per_page?: number;
 }
 
-interface ApiResponse {
+export interface ApiResponse {
   [key: string]: any;
 }
 
-interface PaginatedResponse<T> extends ApiResponse {
+export interface PaginatedResponse<T> extends ApiResponse {
   meta: {
     page: number;
     total: number;
@@ -91,7 +93,7 @@ export class TeachableClient {
     endpoint: string,
     dataKey: string,
     params: Record<string, string | number> = {},
-    perPage: number = 20
+    perPage: number = 10
   ): Promise<T[]> {
     let allData: T[] = [];
     let currentPage = 1;

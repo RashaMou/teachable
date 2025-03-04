@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
-import { getAllCoursesWithInitialStudents } from "@/lib/api/teachableService";
+import { getAllCoursesWithStudents } from "@/lib/api/teachableService";
 
 export async function GET(request: Request) {
   try {
-    const courses = await getAllCoursesWithInitialStudents();
+    const courses = await getAllCoursesWithStudents();
+    console.log("HELLO");
+    console.log(courses);
 
     return NextResponse.json(
       { courses },

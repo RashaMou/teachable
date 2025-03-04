@@ -10,6 +10,7 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ courses }) => {
+  console.log(courses);
   if (!courses || courses.length === 0) {
     return <div className="flex-1 p-6 text-center">No courses found</div>;
   }
@@ -32,12 +33,9 @@ const Dashboard: React.FC<DashboardProps> = ({ courses }) => {
       <div className="flex-1 overflow-auto p-6">
         {selectedCourse && (
           <>
-            <CourseOverview
-              course={selectedCourse}
-              enrolledStudentCount={selectedCourse.totalEnrollments}
-            />
+            <CourseOverview course={selectedCourse} />
             <StudentTable
-              students={selectedCourse.students || []}
+              students={selectedCourse.students}
               courseId={selectedCourse.id}
             />
           </>

@@ -1,83 +1,61 @@
 import { TeachableClient } from "./api/client/teachableClient";
-import { Course, Enrollment, Student } from "./types";
+import { SimpleCache } from "./SimpleCache";
 
-interface TeachableUserResponse {
-  id: number;
-  name: string;
-  email: string;
-  role: string;
-  last_sign_in_ip: string | null;
-  courses: Array<{
-    course_id: number;
-    course_name: string;
-    enrolled_at: string;
-    is_active_enrollment: boolean;
-    completed_at: string | null;
-    percent_complete: number;
-  }>;
+import { Course, Student, TeachableUserResponse } from "./types";
+
+interface SimplifiedCourse {
+  course_id: number;
+  course_name: string;
+  enrolled_at: string;
+  percent_complete: number;
+}
+
+interface StudentMapEntry extends Student {
+  courses: SimplifiedCourse[];
+}
+
+interface StudentMap {
+  [userId: number]: StudentMapEntry;
 }
 
 const client = TeachableClient.fromEnv();
-
-//TODO: implement simple size-limited cache. Add timestamp to cache and then
-//remove earliest entries when cache size === max cache size.
-const userRequestCache = new Map<number, Promise<any>>();
-
-function getStudentsEnrolledInCourse(
-  users: TeachableUserResponse[],
-  courseId: number
-): TeachableUserResponse[] {
-  return users.filter((user) =>
-    user.courses.some((course) => course.course_id === courseId)
-  );
-}
+const studentCache = new SimpleCache<string, StudentMap>();
 
 async function getEnrollmentData(
   courseId: number
 ): Promise<{ totalEnrollments: number; enrollmentsThisMonth: number }> {
-  const enrollmentsResponse = await client.getPaginated<Enrollment>(
-    `/courses/${courseId}/enrollments`,
-    { page: 1, per_page: 20 }
-  );
+  let students = studentCache.get("students");
+  if (!students) {
+    await fetchAndCacheStudents();
+    students = studentCache.get("students");
+  }
+  if (!students) {
+    throw new Error("Student data not available");
+  }
 
-  const totalEnrollments = enrollmentsResponse.meta.total;
+  // get total enrollments for the course
+  const totalEnrollments = Object.values(students).filter((student) =>
+    student.courses.some(
+      (course: SimplifiedCourse) => course.course_id === courseId
+    )
+  ).length;
 
-  const enrollments = enrollmentsResponse["enrollments"];
-  const studentUsers = await fetchStudentUsers(enrollments);
-  const courseStudents = getStudentsEnrolledInCourse(studentUsers, courseId);
-  const enrollmentsThisMonth = countEnrollmentsThisMonth(courseStudents);
-
-  return { totalEnrollments, enrollmentsThisMonth };
-}
-
-async function fetchStudentUsers(
-  enrollments: Enrollment[]
-): Promise<TeachableUserResponse[]> {
-  const userIds = enrollments.map((enrollment) => enrollment.user_id);
-
-  const userPromises = userIds.map((userId) => {
-    if (!userRequestCache.has(userId)) {
-      userRequestCache.set(userId, client.getById<Student>(`/users`, userId));
-    }
-    return userRequestCache.get(userId)!;
-  });
-
-  const allUsers = await Promise.all(userPromises);
-  return allUsers.filter((user) => user.role === "student");
-}
-
-function countEnrollmentsThisMonth(students: TeachableUserResponse[]): number {
+  // get number of new enrollments this months
   const now = new Date();
 
-  const enrollmentsThisMonth = students.filter((student) => {
-    const enrollmentDate = new Date(student.enrolled_at);
-    return (
-      enrollmentDate.getFullYear() === now.getUTCFullYear() &&
-      enrollmentDate.getUTCMonth() === now.getUTCMonth()
+  const enrollmentsThisMonth = Object.values(students).filter((student) => {
+    const course = student.courses.find(
+      (c: SimplifiedCourse) => c.course_id === courseId
     );
-  });
+    if (!course) return false;
+    const enrolledAt = new Date(course.enrolled_at);
+    return (
+      enrolledAt.getUTCFullYear() === now.getUTCFullYear() &&
+      enrolledAt.getUTCMonth() === now.getUTCMonth()
+    );
+  }).length;
 
-  return enrollmentsThisMonth.length;
+  return { totalEnrollments, enrollmentsThisMonth };
 }
 
 export async function transformCourseData(): Promise<Course[]> {
@@ -110,33 +88,53 @@ export async function transformCourseData(): Promise<Course[]> {
   }
 }
 
-export async function transformStudentData(
-  courseId: number,
-  page: number = 1
-): Promise<Student[]> {
-  const enrollmentsResponse = await client.getPaginated<Enrollment>(
-    `/courses/${courseId}/enrollments`,
-    { page }
+// TODO: Replace client-side pagination with server-side pagination. Ideally,
+// the API/BFF should accept page and pageSize parameters and return just the
+// requested subset, along with metadata (total count, total pages, etc.), to
+// improve scalability.
+
+export async function fetchAndCacheStudents(): Promise<StudentMap> {
+  const usersResponse = await client.getAll("/users", "users");
+  const studentMap = await createStudentMap(usersResponse);
+  studentCache.set("students", studentMap);
+  return studentMap;
+}
+
+async function createStudentMap(
+  users: TeachableUserResponse[]
+): Promise<StudentMap> {
+  const fullUsersDetailsPromises = users.map((user) =>
+    client.getById<TeachableUserResponse>("/users/", user.id)
+  );
+  const fullUsersDetails = await Promise.all(fullUsersDetailsPromises);
+
+  const students = fullUsersDetails.filter((user) => user.role === "student");
+
+  // Build a map: student id as key and user details as value.
+  const studentMap = Object.fromEntries(
+    students.map((student) => {
+      const activeCourses = student.courses
+        .filter(
+          (course: TeachableUserResponse["courses"][number]) =>
+            course.is_active_enrollment
+        )
+        .map((course: TeachableUserResponse["courses"][number]) => ({
+          course_id: course.course_id,
+          course_name: course.course_name,
+          enrolled_at: course.enrolled_at,
+          percent_complete: course.percent_complete,
+        }));
+
+      return [
+        student.id,
+        {
+          name: student.name,
+          email: student.email,
+          courses: activeCourses,
+        },
+      ];
+    })
   );
 
-  const enrollments = enrollmentsResponse["enrollments"];
-
-  const studentUsers: TeachableUserResponse[] =
-    await fetchStudentUsers(enrollments);
-
-  const students: Student[] = studentUsers.map((user) => {
-    const courseInfo = user.courses.find(
-      (course: any) => course.course_id === courseId
-    );
-
-    return {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      enrolledAt: courseInfo?.enrolled_at ?? "",
-      percentComplete: courseInfo?.percent_complete ?? 0,
-    };
-  });
-
-  return students;
+  return studentMap;
 }
